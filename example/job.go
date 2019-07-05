@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/hetiansu5/work"
+	"github.com/qit-team/work"
 	"context"
 	"time"
 	"fmt"
