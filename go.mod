@@ -1,4 +1,4 @@
-module github.com/hetiansu5/work
+module github.com/qit-team/work
 
 go 1.12
 
