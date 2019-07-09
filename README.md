@@ -1,59 +1,58 @@
-## Job Worker
-Job worker service in Go.
+## Queue worker
+基于Go语言实现的队列调度服务
 
-## Example
+## Quick start
 ```golang
 
 function main(){
-    //new a job worker service
+    //实例化一个队列调度服务
     job := work.New()
-    //register worker
+    //注册worker
     RegisterWorker(job)
-    //register queue driver
+    //设置queue驱动
     RegisterQueueDriver(job)
-    //set options
+    //设置参数
 	SetOptions(job)
-    //start service
+    //启动服务
     job.Start()
 }
 
 /**
- * Register worker
+ * 注册任务worker
  */
 func RegisterWorker(job *work.Job) {
-	//register a worker with a callback function.
+	//设置worker的任务投递回调函数
 	job.AddFunc("topic:test", test)
-	//register a worker with a callback function and a concurrency control param.
+	//设置worker的任务投递回调函数，和并发数
 	job.AddFunc("topic:test1", test, 2)
-	//register a worker with worker data structure.
+	//使用worker结构进行注册
 	job.AddWorker("topic:test2", &work.Worker{Call: work.MyWorkerFunc(test), MaxConcurrency: 1})
 }
 
 /**
- * Register queue driver for topic
+ * 给topic注册对应的队列服务
  */
 func RegisterQueueDriver(job *work.Job) {
-	//you can register a queue driver for one or more topics. For queue driver, you must implement interface of work.Queue 
+	//针对topic设置相关的queue,需要实现work.Queue接口的方法
 	job.AddQueue(queue1, "topic:test1", "topic:test2")
-	//you can set a default queue driver, that will be available for the remain topics
+	//设置默认的queue, 没有设置过的topic会使用默认的queue
 	job.AddQueue(queue2)
 }
 
 /**
- * Task callback function
- * Remark：process is best not to be asynchronous，otherwise job service can control concurrency of worker.
- *  If you need an asynchronous process, you need to block util the process finish, such as wg.Wait()
+ * 任务投递回调函数
+ * 备注：任务处理逻辑不要异步化，否则无法控制worker并发数，需要异步化的需要阻塞等待异步化结束，如wg.Wait()
  */
 func test(task work.Task) (work.TaskResult) {
 	time.Sleep(time.Millisecond * 5)
 	s, err := work.JsonEncode(task)
 	if err != nil {
-		//work.StateFailed  will not execute ACK confirm
-		//work.StateFailedWithAck will execute ACK confirm
+		//work.StateFailed 不会进行ack确认
+		//work.StateFailedWithAck 会进行ack确认
 		//return work.TaskResult{Id: task.Id, State: work.StateFailed}
 		return work.TaskResult{Id: task.Id, State: work.StateFailedWithAck}
 	} else {
-        //work.StateSucceed will execute ACK confirm
+        //work.StateSucceed 会进行ack确认
 		fmt.Println("do task", s)
 		return work.TaskResult{Id: task.Id, State: work.StateSucceed}
 	}
@@ -61,9 +60,13 @@ func test(task work.Task) (work.TaskResult) {
 }
 ```
 
+## Concurrency test
+条件：设置worker并发度100，worker模拟耗时0.005ms，本地队列100W数据。  
+结果：稳定在18500-19000tps（100并发+耗时0.005ms的极限是20000tps），几乎无损耗   
+测试代码：example/example.go
+
 ## More
 ```
-more example you can see at example/job.go. 
-You can run a test by example/example.go. 
-You can run a command by `go run example/example.go`.
+example/job.go 是一个详细的示例文件
+example/example.go 是一个可以跑起来的测试案例，可以通过go run example/example.go运行
 ```

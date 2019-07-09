@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 	"context"
-	"fmt"
 	"sync/atomic"
 )
 
@@ -25,8 +24,8 @@ const (
 )
 
 var (
-	ErrQueueNotExist = errors.New("queue is not exists")
-	ErrTimeout = errors.New("timeout")
+	ErrQueueNotExist   = errors.New("queue is not exists")
+	ErrTimeout         = errors.New("timeout")
 	ErrTopicRegistered = errors.New("the key had been registered")
 )
 
@@ -45,7 +44,7 @@ type Job struct {
 	//map操作锁
 	wLock sync.RWMutex
 
-	//并发控制通道
+	//worker并发控制通道
 	concurrency map[string]chan struct{}
 	cLock       sync.RWMutex
 
@@ -97,34 +96,21 @@ type Job struct {
 	handleErrCount int64
 }
 
-func New() *Job {
-	j := new(Job)
-	j.ctx = context.Background()
-	j.workers = make(map[string]*Worker)
-	j.concurrency = make(map[string]chan struct{})
-	j.tasksChan = make(map[string]chan Task)
-	j.queueMap = make(map[string]Queue)
-	j.level = Info
-	j.consoleLevel = Info
-	j.sleepy = time.Millisecond * 10
-	j.timer = time.Millisecond * 10
-	j.con = defaultConcurrency
-	return j
-}
-
-func (j *Job) Start() {
-	if j.running {
-		return
+//topic是否开启 备注：空的时候默认启用全部
+func (j *Job) isTopicEnable(topic string) bool {
+	if len(j.enabledTopics) == 0 {
+		return true
 	}
 
-	j.isInit = true
-	j.running = true
-	j.initWorkers()
-	j.initQueueMap()
-	j.runQueues()
-	j.processJob()
+	for _, t := range j.enabledTopics {
+		if t == topic {
+			return true
+		}
+	}
+	return false
 }
 
+//初始化workers相关配置
 func (j *Job) initWorkers() {
 	for topic, w := range j.workers {
 		if !j.isTopicEnable(topic) {
@@ -146,58 +132,7 @@ func (j *Job) initWorkers() {
 	}
 }
 
-//设置worker默认并发数
-func (j *Job) SetConcurrency(concurrency int) {
-	if concurrency <= 0 {
-		return
-	}
-	j.con = concurrency
-}
-
-//设置休眠的时间 -- 碰到异常或者空消息等情况
-func (j *Job) SetSleepy(sleepy time.Duration) {
-	j.sleepy = sleepy
-}
-
-//在通道传递数据时的阻塞超时时间
-func (j *Job) SetTimer(timer time.Duration) {
-	j.timer = timer
-}
-
-//设置标准输出日志等级
-func (j *Job) SetConsoleLevel(level uint8) {
-	j.consoleLevel = level
-}
-
-//设置文件输出日志等级
-func (j *Job) SetLevel(level uint8) {
-	j.level = level
-}
-
-//设置日志服务
-func (j *Job) SetLogger(logger Logger) {
-	j.logger = logger
-}
-
-//针对性开启topics
-func (j *Job) SetEnableTopics(topics ...string) {
-	j.enabledTopics = topics
-}
-
-//topic是否开启 备注：空的时候默认启用全部
-func (j *Job) isTopicEnable(topic string) bool {
-	if len(j.enabledTopics) == 0 {
-		return true
-	}
-
-	for _, t := range j.enabledTopics {
-		if t == topic {
-			return true
-		}
-	}
-	return false
-}
-
+//初始化topic与queu的映射关系map
 func (j *Job) initQueueMap() {
 	j.isQueueMapInit = true
 	topicMap := make(map[string]bool)
@@ -254,6 +189,9 @@ func (j *Job) runQueues() {
 //监听队列某个topic
 func (j *Job) watchQueueTopic(q Queue, topic string) {
 	j.println(Info, "watch queue topic", topic)
+	j.cLock.RLock()
+	conChan := j.concurrency[topic]
+	j.cLock.RUnlock()
 
 	for {
 		if !j.running {
@@ -261,7 +199,12 @@ func (j *Job) watchQueueTopic(q Queue, topic string) {
 			return
 		}
 
-		j.pullTask(q, topic)
+		select {
+		case <-conChan:
+			go j.pullTask(q, topic)
+		case <-time.After(j.timer):
+			continue
+		}
 	}
 }
 
@@ -272,21 +215,19 @@ func (j *Job) setQueueMap(q Queue, topic string) {
 	j.qLock.Unlock()
 }
 
-//获取topic对应的queue服务
-func (j *Job) GetQueueByTopic(topic string) Queue {
-	j.qLock.RLock()
-	q, ok := j.queueMap[topic]
-	j.qLock.RUnlock()
-	if !ok {
-		return nil
-	}
-	return q
-}
-
 //拉取队列消息
 func (j *Job) pullTask(q Queue, topic string) {
+	var taskEnqueue bool
+
 	j.wg.Add(1)
-	defer j.wg.Done()
+	defer func() {
+		j.wg.Done()
+
+		//任务没有入队时需要给缓存通道重新筛数据，保证上游拉取队列消息的持续运行
+		if !taskEnqueue {
+			j.concurrency[topic] <- struct{}{}
+		}
+	}()
 
 	message, token, err := q.Dequeue(j.ctx, topic)
 	atomic.AddInt64(&j.pullCount, 1)
@@ -323,109 +264,19 @@ func (j *Job) pullTask(q Queue, topic string) {
 	for {
 		select {
 		case tc <- task:
+			taskEnqueue = true
 			j.println(Debug, "taskChan push after", task, time.Now())
 			return
 
 		case <-time.After(j.timer):
 			//如果队列暂停了，先紧急处理任务
-			if !j.running {
-				j.processTask(topic, task)
-				fmt.Println("stop handle", topic, task, j.taskCount)
-				return
-			}
+			//if !j.running {
+			//	j.processTask(topic, task)
+			//	fmt.Println("stop handle", topic, task, j.taskCount)
+			//	return
+			//}
 			continue
 		}
-	}
-}
-
-/**
- * 往Job注入Queue服务
- */
-func (j *Job) AddQueue(q Queue, topics ...string) {
-	if len(topics) > 0 {
-		qm := queueManger{
-			queue:  q,
-			topics: topics,
-		}
-		j.queueMangers = append(j.queueMangers, qm)
-	} else {
-		j.defaultQueue = q
-	}
-}
-
-/**
- * 暂停Job
- */
-func (j *Job) Stop() {
-	if !j.running {
-		return
-	}
-	j.running = false
-}
-
-/**
- * 等待队列任务消费完成，可设置超时时间返回
- * @param timeout 如果小于0则默认10秒
- */
-func (j *Job) WaitStop(timeout time.Duration) error {
-	ch := make(chan struct{})
-
-	time.Sleep((j.timer + j.sleepy) * 2)
-	if timeout <= 0 {
-		timeout = time.Second * 10
-	}
-
-	go func() {
-		j.wg.Wait()
-		close(ch)
-	}()
-
-	select {
-	case <-ch:
-		return nil
-	case <-time.After(timeout):
-		return ErrTimeout
-	}
-
-	return nil
-}
-
-func (j *Job) AddFunc(topic string, f func(task Task) (TaskResult), args ...interface{}) error {
-	//worker并发数
-	var concurrency int
-	if len(args) > 0 {
-		if c, ok := args[0].(int); ok {
-			concurrency = c
-		}
-	}
-	w := &Worker{Call: MyWorkerFunc(f), MaxConcurrency: concurrency}
-	return j.AddWorker(topic, w)
-}
-
-func (j *Job) AddWorker(topic string, w *Worker) error {
-	j.wLock.Lock()
-	defer j.wLock.Unlock()
-
-	if _, ok := j.workers[topic]; ok {
-		return ErrTopicRegistered
-	}
-
-	j.workers[topic] = w
-
-	j.printf(Info, "topic(%s) concurrency %d\n", topic, w.MaxConcurrency)
-	return nil
-}
-
-//获取统计数据
-func (j *Job) Stats() map[string]int64 {
-	return map[string]int64{
-		"pull":       j.pullCount,
-		"pull_err":   j.pullErrCount,
-		"pull_empty": j.pullEmptyCount,
-		"task":       j.taskCount,
-		"task_err":   j.taskErrCount,
-		"handle":     j.handleCount,
-		"handle_err": j.handleErrCount,
 	}
 }
 
@@ -437,19 +288,10 @@ func (j *Job) processJob() {
 
 //读取通道数据分发到各个topic对应的worker进行处理
 func (j *Job) processWork(topic string, taskChan <-chan Task) {
-	j.cLock.RLock()
-	c := j.concurrency[topic]
-	j.cLock.RUnlock()
-
 	for {
 		select {
-		case <-c:
-			select {
-			case task := <-taskChan:
-				go j.processTask(topic, task)
-			case <-time.After(j.timer):
-				c <- struct{}{}
-			}
+		case task := <-taskChan:
+			go j.processTask(topic, task)
 		case <-time.After(j.timer):
 			continue
 		}
@@ -490,136 +332,4 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 	}
 
 	return result
-}
-
-//是否达到标准输出等级
-func (j *Job) reachConsoleLevel(level uint8) bool {
-	return level >= j.consoleLevel
-}
-
-//标准输出
-func (j *Job) println(level uint8, a ...interface{}) {
-	if !j.reachConsoleLevel(level) {
-		return
-	}
-	fmt.Println(a...)
-}
-
-//格式化标准输出
-func (j *Job) printf(level uint8, format string, a ...interface{}) {
-	if !j.reachConsoleLevel(level) {
-		return
-	}
-	fmt.Printf(format, a...)
-}
-
-//是否达到输出日志等级
-func (j *Job) reachLevel(level uint8) bool {
-	return level >= j.level
-}
-
-//打印日志
-func (j *Job) log(level uint8, a ...interface{}) {
-	if j.logger == nil {
-		return
-	}
-	if !j.reachLevel(level) {
-		return
-	}
-	switch level {
-	case Trace:
-		j.logger.Trace(a...)
-	case Debug:
-		j.logger.Debug(a...)
-	case Info:
-		j.logger.Info(a...)
-	case Warn:
-		j.logger.Warn(a...)
-	case Error:
-		j.logger.Error(a...)
-	case Fatal:
-		j.logger.Fatal(a...)
-	}
-}
-
-//格式化打印日志
-func (j *Job) logf(level uint8, format string, a ...interface{}) {
-	if j.logger == nil {
-		return
-	}
-	if !j.reachLevel(level) {
-		return
-	}
-	switch level {
-	case Trace:
-		j.logger.Tracef(format, a...)
-	case Debug:
-		j.logger.Debugf(format, a...)
-	case Info:
-		j.logger.Infof(format, a...)
-	case Warn:
-		j.logger.Warnf(format, a...)
-	case Error:
-		j.logger.Errorf(format, a...)
-	case Fatal:
-		j.logger.Fatalf(format, a...)
-	}
-}
-
-//日志和标准输出
-func (j *Job) logAndPrintln(level uint8, a ...interface{}) {
-	j.log(level, a...)
-	j.println(level, a...)
-}
-
-func (j *Job) LogfAndPrintf(level uint8, format string, a ...interface{}) {
-	j.logf(level, format, a...)
-	j.printf(level, format, a...)
-}
-
-//消息入队 -- 原始message
-func (j *Job) Enqueue(ctx context.Context, topic string, message string, args ...interface{}) (bool, error) {
-	task := GenTask(topic, message)
-	return j.EnqueueWithTask(ctx, topic, task, args...)
-}
-
-//消息入队 -- Task数据结构
-func (j *Job) EnqueueWithTask(ctx context.Context, topic string, task Task, args ...interface{}) (bool, error) {
-	if !j.isQueueMapInit {
-		j.initQueueMap()
-	}
-	q := j.GetQueueByTopic(topic)
-	if q == nil {
-		return false, ErrQueueNotExist
-	}
-
-	s, _ := JsonEncode(task)
-	return q.Enqueue(ctx, topic, s, args...)
-}
-
-//消息入队 -- 原始message
-func (j *Job) BatchEnqueue(ctx context.Context, topic string, messages []string, args ...interface{}) (bool, error) {
-	tasks := make([]Task, len(messages))
-	for k, message := range messages {
-		tasks[k] = GenTask(topic, message)
-	}
-	return j.BatchEnqueueWithTask(ctx, topic, tasks, args...)
-}
-
-//消息入队 -- Task数据结构
-func (j *Job) BatchEnqueueWithTask(ctx context.Context, topic string, tasks []Task, args ...interface{}) (bool, error) {
-	if !j.isQueueMapInit {
-		j.initQueueMap()
-	}
-	q := j.GetQueueByTopic(topic)
-	if q == nil {
-		return false, ErrQueueNotExist
-	}
-
-	arr := make([]string, len(tasks))
-	for k, task := range tasks {
-		s, _ := JsonEncode(task)
-		arr[k] = s
-	}
-	return q.BatchEnqueue(ctx, topic, arr, args...)
 }

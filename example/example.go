@@ -35,7 +35,7 @@ func main() {
 
 	pushQueueData(job, "hts1", 10)
 	pushQueueData(job, "hts2", 10, 100)
-	pushQueueData(job, "kxy1", 10, 1000)
+	pushQueueData(job, "kxy1", 1000000, 1000)
 
 	job.Start()
 	go jobStats(job)
@@ -99,13 +99,13 @@ func jobStats(job *work.Job) {
 func RegisterWorker2(job *work.Job) {
 	job.AddFunc("hts1", Me, 10)
 	job.AddFunc("hts2", Me, 6)
-	job.AddWorker("kxy1", &work.Worker{Call: work.MyWorkerFunc(Me), MaxConcurrency: 30})
+	job.AddWorker("kxy1", &work.Worker{Call: work.MyWorkerFunc(Me), MaxConcurrency: 100})
 }
 
 func Me(task work.Task) (work.TaskResult) {
 	time.Sleep(time.Millisecond * 5)
-	s, _ := work.JsonEncode(task)
-	fmt.Println("do task", s)
+	//s, _ := work.JsonEncode(task)
+	//fmt.Println("do task", s)
 	return work.TaskResult{Id: task.Id}
 }
 
