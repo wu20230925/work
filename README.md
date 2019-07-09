@@ -1,6 +1,16 @@
 ## Queue worker
 基于Go语言实现的队列调度服务
 
+## Features
+- 非侵入式的Queue接口设计，解耦队列调度服务与Queue驱动，Queue驱动自行扩展实现；
+- 非侵入式的Logger接口设计，Logger自行扩展实现，通过SetLogger注入；
+- 简洁易用的Worker注册机制，开发只需要关心业务逻辑的实现；
+- 支持日志等级、标准输出等级控制；
+- 支持worker任务错误返回回调注册；
+- 支持worker任务panic回调函数注册；
+- 支持针对性开启topic的消费worker；
+- 支持平滑关闭+超时保护机制；
+
 ## Quick start
 ```golang
 
@@ -60,7 +70,7 @@ func test(task work.Task) (work.TaskResult) {
 }
 ```
 
-## Concurrency test
+## Bench
 条件：设置worker并发度100，worker模拟耗时0.005ms，本地队列100W数据。  
 结果：稳定在18500-19000tps（100并发+耗时0.005ms的极限是20000tps），几乎无损耗   
 测试代码：example/example.go

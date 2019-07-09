@@ -87,13 +87,18 @@ type Job struct {
 	isQueueMapInit bool
 
 	//统计
-	pullCount      int64
-	pullEmptyCount int64
-	pullErrCount   int64
-	taskCount      int64
-	taskErrCount   int64
-	handleCount    int64
-	handleErrCount int64
+	pullCount        int64
+	pullEmptyCount   int64
+	pullErrCount     int64
+	taskCount        int64
+	taskErrCount     int64
+	handleCount      int64
+	handleErrCount   int64
+	handlePanicCount int64
+
+	//失败或者异常补救措施
+	taskErrCallback   func(task Task)
+	taskPanicCallback func(task Task)
 }
 
 //topic是否开启 备注：空的时候默认启用全部
@@ -267,14 +272,7 @@ func (j *Job) pullTask(q Queue, topic string) {
 			taskEnqueue = true
 			j.println(Debug, "taskChan push after", task, time.Now())
 			return
-
 		case <-time.After(j.timer):
-			//如果队列暂停了，先紧急处理任务
-			//if !j.running {
-			//	j.processTask(topic, task)
-			//	fmt.Println("stop handle", topic, task, j.taskCount)
-			//	return
-			//}
 			continue
 		}
 	}
@@ -288,6 +286,12 @@ func (j *Job) processJob() {
 
 //读取通道数据分发到各个topic对应的worker进行处理
 func (j *Job) processWork(topic string, taskChan <-chan Task) {
+	defer func() {
+		if e := recover(); e != nil {
+			j.logAndPrintln(Fatal, "process_task_panic", e)
+		}
+	}()
+
 	for {
 		select {
 		case task := <-taskChan:
@@ -305,8 +309,14 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 		j.wg.Done()
 		j.concurrency[topic] <- struct{}{}
 
+		//任务panic回调函数
 		if e := recover(); e != nil {
-			j.logAndPrintln(Fatal, "task_recover", task, e)
+			atomic.AddInt64(&j.handlePanicCount, 1)
+			if j.taskPanicCallback != nil {
+				j.taskPanicCallback(task)
+			} else {
+				j.logAndPrintln(Fatal, "task_panic", task, e)
+			}
 		}
 	}()
 
@@ -319,15 +329,32 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 	atomic.AddInt64(&j.handleCount, 1)
 
 	if task.Token != "" {
-		if result.State == StateSucceed || result.State == StateFailedWithAck {
+		var (
+			isAck     bool
+			isSuccess bool
+		)
+		switch result.State {
+		case StateSucceed:
+			isAck = true
+			isSuccess = true
+		case StateFailedWithAck:
+			isAck = true
+			atomic.AddInt64(&j.handleErrCount, 1)
+		case StateFailed:
+			atomic.AddInt64(&j.handleErrCount, 1)
+		}
+
+		//是否需要执行ack
+		if isAck {
 			_, err := j.GetQueueByTopic(topic).AckMsg(j.ctx, topic, task.Token)
 			if err != nil {
 				j.logAndPrintln(Error, "ack_error", topic, task)
 			}
 		}
 
-		if result.State == StateFailedWithAck || result.State == StateFailed {
-			j.handleErrCount++
+		//失败的时候执行回调函数
+		if !isSuccess && j.taskErrCallback != nil {
+			j.taskErrCallback(task)
 		}
 	}
 

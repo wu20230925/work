@@ -99,13 +99,14 @@ func (j *Job) AddWorker(topic string, w *Worker) error {
 //获取统计数据
 func (j *Job) Stats() map[string]int64 {
 	return map[string]int64{
-		"pull":       j.pullCount,
-		"pull_err":   j.pullErrCount,
-		"pull_empty": j.pullEmptyCount,
-		"task":       j.taskCount,
-		"task_err":   j.taskErrCount,
-		"handle":     j.handleCount,
-		"handle_err": j.handleErrCount,
+		"pull":         j.pullCount,
+		"pull_err":     j.pullErrCount,
+		"pull_empty":   j.pullEmptyCount,
+		"task":         j.taskCount,
+		"task_err":     j.taskErrCount,
+		"handle":       j.handleCount,
+		"handle_err":   j.handleErrCount,
+		"handle_panic": j.handlePanicCount,
 	}
 }
 
@@ -145,4 +146,14 @@ func (j *Job) SetLogger(logger Logger) {
 //针对性开启topics
 func (j *Job) SetEnableTopics(topics ...string) {
 	j.enabledTopics = topics
+}
+
+//设置任务失败回调函数
+func (j *Job) RegisterTaskErrCallback(f func(task Task)) {
+	j.taskErrCallback = f
+}
+
+//设置任务panic回调函数：回调函数自己确保panic不会上报，否则会导致此topic的队列worker停止
+func (j *Job) RegisterTaskPanicCallback(f func(task Task)) {
+	j.taskPanicCallback = f
 }
