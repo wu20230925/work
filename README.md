@@ -72,11 +72,14 @@ func test(task work.Task) (work.TaskResult) {
 
 ## Bench
 条件：设置worker并发度100，worker模拟耗时0.005ms，本地队列100W数据。  
-结果：稳定在18500-19000tps（100并发+耗时0.005ms的极限是20000tps），几乎无损耗   
-测试代码：example/example.go
+结果：稳定在18500-19000tps（100并发+耗时0.005ms的极限是20000tps），损耗几乎集中在内存队列操作的耗时(本地内存队列没好好实现)，本身实现的损耗非常小。
+测试代码：go run example/example.go
 
 ## More
 ```
-example/job.go 是一个详细的示例文件
-example/example.go 是一个可以跑起来的测试案例，可以通过go run example/example.go运行
+# 一个详细的示例文件
+example/job.go
+
+# 单topic消费速度近似计算公式
+1s/(队列驱动单次拉取数据耗时+worker单任务处理耗时) * worker并发数
 ```
