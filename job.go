@@ -198,6 +198,7 @@ func (j *Job) watchQueueTopic(q Queue, topic string) {
 	conChan := j.concurrency[topic]
 	j.cLock.RUnlock()
 
+	timer := time.NewTimer(j.timer)
 	for {
 		if !j.running {
 			j.println(Info, "stop watch queue topic", topic)
@@ -207,7 +208,8 @@ func (j *Job) watchQueueTopic(q Queue, topic string) {
 		select {
 		case <-conChan:
 			go j.pullTask(q, topic)
-		case <-time.After(j.timer):
+		case <-timer.C:
+			timer.Reset(j.timer)
 			continue
 		}
 	}
@@ -266,13 +268,15 @@ func (j *Job) pullTask(q Queue, topic string) {
 	tc := j.tasksChan[topic]
 	j.tLock.RUnlock()
 
+	timer := time.NewTimer(j.timer)
 	for {
 		select {
 		case tc <- task:
 			taskEnqueue = true
 			j.println(Debug, "taskChan push after", task, time.Now())
 			return
-		case <-time.After(j.timer):
+		case <-timer.C:
+			timer.Reset(j.timer)
 			continue
 		}
 	}
@@ -292,11 +296,13 @@ func (j *Job) processWork(topic string, taskChan <-chan Task) {
 		}
 	}()
 
+	timer := time.NewTimer(j.timer)
 	for {
 		select {
 		case task := <-taskChan:
 			go j.processTask(topic, task)
-		case <-time.After(j.timer):
+		case <-timer.C:
+			timer.Reset(j.timer)
 			continue
 		}
 	}

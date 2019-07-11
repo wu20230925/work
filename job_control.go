@@ -15,7 +15,7 @@ func New() *Job {
 	j.level = Info
 	j.consoleLevel = Info
 	j.sleepy = time.Millisecond * 10
-	j.timer = time.Millisecond * 10
+	j.timer = time.Millisecond * 500
 	j.con = defaultConcurrency
 	return j
 }
@@ -50,7 +50,7 @@ func (j *Job) Stop() {
 func (j *Job) WaitStop(timeout time.Duration) error {
 	ch := make(chan struct{})
 
-	time.Sleep((j.timer + j.sleepy) * 2)
+	time.Sleep(j.sleepy * 2)
 	if timeout <= 0 {
 		timeout = time.Second * 10
 	}
