@@ -15,7 +15,7 @@ func New() *Job {
 	j.level = Info
 	j.consoleLevel = Info
 	j.sleepy = time.Millisecond * 10
-	j.timer = time.Millisecond * 500
+	j.timer = time.Millisecond * 30
 	j.con = defaultConcurrency
 	return j
 }
@@ -148,9 +148,14 @@ func (j *Job) SetEnableTopics(topics ...string) {
 	j.enabledTopics = topics
 }
 
-//设置任务失败回调函数
-func (j *Job) RegisterTaskErrCallback(f func(task Task)) {
-	j.taskErrCallback = f
+//设置任务处理前回调函数
+func (j *Job) RegisterTaskBeforeCallback(f func(task Task)) {
+	j.taskBeforeCallback = f
+}
+
+//设置任务处理后回调函数
+func (j *Job) RegisterTaskAfterCallback(f func(task Task, taskResult TaskResult)) {
+	j.taskAfterCallback = f
 }
 
 //设置任务panic回调函数：回调函数自己确保panic不会上报，否则会导致此topic的队列worker停止

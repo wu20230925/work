@@ -45,6 +45,9 @@ func (j *Job) EnqueueWithTask(ctx context.Context, topic string, task Task, args
 		return false, ErrQueueNotExist
 	}
 
+	if task.Topic == "" {
+		task.Topic = topic
+	}
 	s, _ := JsonEncode(task)
 	return q.Enqueue(ctx, topic, s, args...)
 }
@@ -70,6 +73,9 @@ func (j *Job) BatchEnqueueWithTask(ctx context.Context, topic string, tasks []Ta
 
 	arr := make([]string, len(tasks))
 	for k, task := range tasks {
+		if task.Topic == "" {
+			task.Topic = topic
+		}
 		s, _ := JsonEncode(task)
 		arr[k] = s
 	}

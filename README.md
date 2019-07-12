@@ -1,4 +1,4 @@
-## Queue worker
+## Queue Worker
 基于Go语言实现的队列调度服务
 
 ## Features
@@ -11,7 +11,7 @@
 - 支持针对性开启topic的消费worker；
 - 支持平滑关闭+超时保护机制；
 
-## Quick start
+## Quick Start
 ```golang
 
 function main(){
@@ -70,10 +70,83 @@ func test(task work.Task) (work.TaskResult) {
 }
 ```
 
+## Get Started
+
+### New Job Worker Service
+```
+j = job.New()
+```
+
+### Event Register
+```
+//任务处理前的回调函数
+j.RegisterTaskBeforeCallback(task Task)
+//任务处理后的回调函数
+j.RegisterTaskAfterCallback(task Task, result Task)
+//任务处理触发panic的回调函数
+j.RegisterTaskBeforeCallback(task Task)
+```
+
+### Register Queue Driver
+```
+//针对topic设置相关的queue,需要实现work.Queue接口的方法
+job.AddQueue(&LocalQueue{}, "topic1", "topic2")
+
+//设置默认的queue, 没有设置过的topic会使用默认的queue
+job.AddQueue(&LocalQueue{})
+```
+
+### Set Control
+```
+//设置logger，需要实现work.Logger接口的方法
+j.SetLogger(&MyLogger{})
+
+//设置logger日志等级，默认work.Info
+j.SetLevel(work.Warn)
+
+//设置console输出等级,默认work.Warn
+j.SetConsoleLevel(work.Warn)
+
+//设置worker默认的并发数，默认为5
+j.SetConcurrency(10)
+
+//设置启用的topic，未设置表示启用全部注册过topic
+j.SetEnableTopics("topic1", "topic2")
+```
+
+### How to Start
+```
+j.Start()
+```
+
+### How to Stop
+```
+//将服务设置为停止状态
+//j.Stop()
+
+//waitStop会等待worker任务跑完后停止当前服务。
+//第一个参数为超时时间，如果无法获取到worker全部停止状态，在超时时间后会return一个超时错误
+//job.WaitStop(time.Second * 3)
+```
+
+### Stats
+```
+//获取运行态统计数据
+j.Stats()
+```
+
 ## Bench
-条件：设置worker并发度100，worker模拟耗时0.005ms，本地队列100W数据。  
-结果：稳定在18500-19000tps（100并发+耗时0.005ms的极限是20000tps），损耗几乎集中在内存队列操作的耗时(本地内存队列没好好实现)，本身实现的损耗非常小。
+条件：设置worker并发度100，worker模拟耗时0.005ms，本地队列100W数据。
+
+结果：稳定在19000tps左右（100并发+耗时0.005ms的极限是20000tps），损耗几乎集中在内存队列操作的耗时(本地内存队列没好好实现)，本身实现的损耗非常小。
+
 测试代码：go run example/example.go
+
+测试截图：  
+pull表示从Queue驱动拉取的消息数，task表示任务分发数，handle表示任务处理数  
+
+<img src='docs/bench1.png' width="300">
+
 
 ## More
 ```

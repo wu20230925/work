@@ -96,9 +96,15 @@ type Job struct {
 	handleErrCount   int64
 	handlePanicCount int64
 
-	//失败或者异常补救措施
-	taskErrCallback   func(task Task)
+	//回调函数
+	//任务返回失败回调函数
+	taskErrCallback   func(task Task, result TaskResult)
+	//任务panic回调函数
 	taskPanicCallback func(task Task)
+	//任务处理前回调
+	taskBeforeCallback func(task Task)
+	//任务处理后回调
+	taskAfterCallback func(task Task, result TaskResult)
 }
 
 //topic是否开启 备注：空的时候默认启用全部
@@ -330,38 +336,40 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 	w := j.workers[topic]
 	j.wLock.RUnlock()
 
+	//任务处理前回调函数
+	if j.taskBeforeCallback != nil {
+		j.taskBeforeCallback(task)
+	}
+
 	result := w.Call.Run(task)
+
 	//多线程安全加减
 	atomic.AddInt64(&j.handleCount, 1)
 
-	if task.Token != "" {
-		var (
-			isAck     bool
-			isSuccess bool
-		)
-		switch result.State {
-		case StateSucceed:
-			isAck = true
-			isSuccess = true
-		case StateFailedWithAck:
-			isAck = true
-			atomic.AddInt64(&j.handleErrCount, 1)
-		case StateFailed:
-			atomic.AddInt64(&j.handleErrCount, 1)
-		}
+	var (
+		isAck     bool
+	)
+	switch result.State {
+	case StateSucceed:
+		isAck = true
+	case StateFailedWithAck:
+		isAck = true
+		atomic.AddInt64(&j.handleErrCount, 1)
+	case StateFailed:
+		atomic.AddInt64(&j.handleErrCount, 1)
+	}
 
-		//是否需要执行ack
-		if isAck {
-			_, err := j.GetQueueByTopic(topic).AckMsg(j.ctx, topic, task.Token)
-			if err != nil {
-				j.logAndPrintln(Error, "ack_error", topic, task)
-			}
+	//消息ACK
+	if isAck && task.Token != "" {
+		_, err := j.GetQueueByTopic(topic).AckMsg(j.ctx, topic, task.Token)
+		if err != nil {
+			j.logAndPrintln(Error, "ack_error", topic, task)
 		}
+	}
 
-		//失败的时候执行回调函数
-		if !isSuccess && j.taskErrCallback != nil {
-			j.taskErrCallback(task)
-		}
+	//任务处理后回调函数
+	if j.taskAfterCallback != nil {
+		j.taskAfterCallback(task, result)
 	}
 
 	return result
