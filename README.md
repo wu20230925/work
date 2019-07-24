@@ -33,7 +33,7 @@ j.AddWorker("topic:test2", &work.Worker{Call: work.MyWorkerFunc(test), MaxConcur
 //任务处理前的回调函数
 j.RegisterTaskBeforeCallback(task Task)
 //任务处理后的回调函数
-j.RegisterTaskAfterCallback(task Task, result Task)
+j.RegisterTaskAfterCallback(task Task, taskResult TaskResult)
 //任务处理触发panic的回调函数
 j.RegisterTaskBeforeCallback(task Task)
 ```
