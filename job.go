@@ -19,7 +19,6 @@ const (
 	Info
 	Warn
 	Error
-	Fatal
 	None
 )
 
@@ -298,7 +297,7 @@ func (j *Job) processJob() {
 func (j *Job) processWork(topic string, taskChan <-chan Task) {
 	defer func() {
 		if e := recover(); e != nil {
-			j.logAndPrintln(Fatal, "process_task_panic", e)
+			j.logAndPrintln(Error, "process_task_panic", e)
 		}
 	}()
 
@@ -327,7 +326,7 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 			if j.taskPanicCallback != nil {
 				j.taskPanicCallback(task)
 			} else {
-				j.logAndPrintln(Fatal, "task_panic", task, e)
+				j.logAndPrintln(Error, "task_panic", task, e)
 			}
 		}
 	}()

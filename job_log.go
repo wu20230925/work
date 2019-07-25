@@ -47,8 +47,6 @@ func (j *Job) log(level uint8, a ...interface{}) {
 		j.logger.Warn(a...)
 	case Error:
 		j.logger.Error(a...)
-	case Fatal:
-		j.logger.Fatal(a...)
 	}
 }
 
@@ -71,8 +69,6 @@ func (j *Job) logf(level uint8, format string, a ...interface{}) {
 		j.logger.Warnf(format, a...)
 	case Error:
 		j.logger.Errorf(format, a...)
-	case Fatal:
-		j.logger.Fatalf(format, a...)
 	}
 }
 
@@ -82,7 +78,7 @@ func (j *Job) logAndPrintln(level uint8, a ...interface{}) {
 	j.println(level, a...)
 }
 
-func (j *Job) LogfAndPrintf(level uint8, format string, a ...interface{}) {
+func (j *Job) logfAndPrintf(level uint8, format string, a ...interface{}) {
 	j.logf(level, format, a...)
 	j.printf(level, format, a...)
 }

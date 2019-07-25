@@ -242,11 +242,3 @@ func (logger *MyLogger) Error(v ...interface{}) {
 func (logger *MyLogger) Errorf(format string, args ...interface{}) {
 
 }
-
-func (logger *MyLogger) Fatal(v ...interface{}) {
-
-}
-
-func (logger *MyLogger) Fatalf(format string, args ...interface{}) {
-
-}
