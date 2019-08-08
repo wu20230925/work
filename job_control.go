@@ -159,6 +159,6 @@ func (j *Job) RegisterTaskAfterCallback(f func(task Task, taskResult TaskResult)
 }
 
 //设置任务panic回调函数：回调函数自己确保panic不会上报，否则会导致此topic的队列worker停止
-func (j *Job) RegisterTaskPanicCallback(f func(task Task)) {
+func (j *Job) RegisterTaskPanicCallback(f func(task Task, e ...interface{})) {
 	j.taskPanicCallback = f
 }

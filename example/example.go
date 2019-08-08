@@ -30,8 +30,11 @@ func main() {
 	job.SetConsoleLevel(work.Info)
 	job.SetEnableTopics("kxy1", "hts2")
 	//task任务panic的回调函数
-	job.RegisterTaskPanicCallback(func(task work.Task) {
+	job.RegisterTaskPanicCallback(func(task work.Task, e ...interface{}) {
 		fmt.Println("task_panic_callback", task.Message)
+		if len(e) > 0 {
+			fmt.Println("task_panic_error", e[0])
+		}
 	})
 
 	bench(job);
