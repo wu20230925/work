@@ -98,8 +98,8 @@ type Job struct {
 	//回调函数
 	//任务返回失败回调函数
 	taskErrCallback   func(task Task, result TaskResult)
-	//任务panic回调函数
-	taskPanicCallback func(task Task)
+	//任务panic回调函数 增加参数将panic信息传递给回调函数，方便做sentry处理
+	taskPanicCallback func(task Task, e ...interface{})
 	//任务处理前回调
 	taskBeforeCallback func(task Task)
 	//任务处理后回调
@@ -324,7 +324,7 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 		if e := recover(); e != nil {
 			atomic.AddInt64(&j.handlePanicCount, 1)
 			if j.taskPanicCallback != nil {
-				j.taskPanicCallback(task)
+				j.taskPanicCallback(task, e)
 			} else {
 				j.logAndPrintln(Error, "task_panic", task, e)
 			}
