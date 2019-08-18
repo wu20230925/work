@@ -35,7 +35,7 @@ j.RegisterTaskBeforeCallback(task Task)
 //任务处理后的回调函数
 j.RegisterTaskAfterCallback(task Task, taskResult TaskResult)
 //任务处理触发panic的回调函数
-j.RegisterTaskBeforeCallback(task Task)
+j.taskPanicCallback(task Task, e ...interface{})
 ```
 
 ### Register queue driver
