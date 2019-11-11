@@ -1,10 +1,10 @@
 package main
 
 import (
-	"github.com/qit-team/work"
 	"context"
-	"time"
 	"fmt"
+	"github.com/qit-team/work"
+	"time"
 )
 
 func main() {
@@ -73,7 +73,7 @@ func SetOptions(job *work.Job) {
  * 任务投递回调函数
  * 备注：任务处理逻辑不要异步化，否则无法控制worker并发数，需要异步化的需要阻塞等待异步化结束，如wg.Wait()
  */
-func test(task work.Task) (work.TaskResult) {
+func test(task work.Task) work.TaskResult {
 	time.Sleep(time.Millisecond * 5)
 	s, err := work.JsonEncode(task)
 	if err != nil {

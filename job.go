@@ -1,11 +1,11 @@
 package work
 
 import (
-	"sync"
-	"errors"
-	"time"
 	"context"
+	"errors"
+	"sync"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -97,7 +97,7 @@ type Job struct {
 
 	//回调函数
 	//任务返回失败回调函数
-	taskErrCallback   func(task Task, result TaskResult)
+	taskErrCallback func(task Task, result TaskResult)
 	//任务panic回调函数 增加参数将panic信息传递给回调函数，方便做sentry处理
 	taskPanicCallback func(task Task, e ...interface{})
 	//任务处理前回调
@@ -241,7 +241,7 @@ func (j *Job) pullTask(q Queue, topic string) {
 		}
 	}()
 
-	message, token, err := q.Dequeue(j.ctx, topic)
+	message, token, dequeueCount, err := q.Dequeue(j.ctx, topic)
 	atomic.AddInt64(&j.pullCount, 1)
 	if err != nil && err != ErrNil {
 		atomic.AddInt64(&j.pullErrCount, 1)
@@ -268,6 +268,7 @@ func (j *Job) pullTask(q Queue, topic string) {
 	} else if task.Topic != "" {
 		task.Token = token
 	}
+	task.DequeueCount = dequeueCount
 
 	j.tLock.RLock()
 	tc := j.tasksChan[topic]
@@ -346,10 +347,12 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 	atomic.AddInt64(&j.handleCount, 1)
 
 	var (
-		isAck     bool
+		isAck bool
 	)
 	switch result.State {
 	case StateSucceed:
+		isAck = true
+	case StateFailedWithRetryNumLimit:
 		isAck = true
 	case StateFailedWithAck:
 		isAck = true

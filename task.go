@@ -11,13 +11,16 @@ const (
 	StateFailed
 	//失败，会触发ack
 	StateFailedWithAck
+	//失败，出队次数超过限制 也会触发ack
+	StateFailedWithRetryNumLimit
 )
 
 type Task struct {
-	Id      string `json:"id"`
-	Topic   string `json:"topic"`
-	Message string `json:"message"`
-	Token   string
+	Id           string `json:"id"`
+	Topic        string `json:"topic"`
+	Message      string `json:"message"`
+	Token        string
+	DequeueCount int64
 }
 
 func (t Task) String() string {

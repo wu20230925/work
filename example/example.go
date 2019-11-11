@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/qit-team/work"
-	"fmt"
 	"context"
-	"sync"
+	"fmt"
+	"github.com/qit-team/work"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -37,7 +37,7 @@ func main() {
 		}
 	})
 
-	bench(job);
+	bench(job)
 
 	//termStop(job);
 
@@ -72,7 +72,7 @@ func termStop(job *work.Job) {
 	time.Sleep(time.Millisecond * 3000)
 	job.Stop()
 	err := job.WaitStop(time.Second * 10)
-	fmt.Println("wait stop return", err);
+	fmt.Println("wait stop return", err)
 
 	//统计数据，查看是否有漏处理的任务
 	stat := job.Stats()
@@ -106,7 +106,6 @@ func jobStats(job *work.Job) {
 	var count int64
 	var str string
 
-
 	lastStat := job.Stats()
 	keys := make([]string, 0)
 	for k, _ := range lastStat {
@@ -137,7 +136,7 @@ func RegisterWorkerBench(job *work.Job) {
 	job.AddWorker("kxy1", &work.Worker{Call: work.MyWorkerFunc(Mock), MaxConcurrency: 100})
 }
 
-func Mock(task work.Task) (work.TaskResult) {
+func Mock(task work.Task) work.TaskResult {
 	time.Sleep(time.Millisecond * 5)
 	return work.TaskResult{Id: task.Id}
 }
@@ -151,7 +150,7 @@ func RegisterWorker2(job *work.Job) {
 	job.AddWorker("kxy1", &work.Worker{Call: work.MyWorkerFunc(Me), MaxConcurrency: 5})
 }
 
-func Me(task work.Task) (work.TaskResult) {
+func Me(task work.Task) work.TaskResult {
 	time.Sleep(time.Millisecond * 50)
 	i, _ := strconv.Atoi(task.Message)
 	if i%10 == 0 {
@@ -188,7 +187,7 @@ func (q *LocalQueue) BatchEnqueue(ctx context.Context, key string, messages []st
 	return true, nil
 }
 
-func (q *LocalQueue) Dequeue(ctx context.Context, key string) (message string, token string, err error) {
+func (q *LocalQueue) Dequeue(ctx context.Context, key string) (message string, token string, dequeueCount int64, err error) {
 	lock.Lock()
 	defer lock.Unlock()
 
