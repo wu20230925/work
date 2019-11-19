@@ -241,7 +241,8 @@ func (j *Job) pullTask(q Queue, topic string) {
 		}
 	}()
 
-	message, token, dequeueCount, err := q.Dequeue(j.ctx, topic)
+	extraParams := j.workers[topic].ExtraParam
+	message, token, dequeueCount, err := q.Dequeue(j.ctx, topic, extraParams)
 	atomic.AddInt64(&j.pullCount, 1)
 	if err != nil && err != ErrNil {
 		atomic.AddInt64(&j.pullErrCount, 1)
@@ -363,7 +364,8 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 
 	//消息ACK
 	if isAck && task.Token != "" {
-		_, err := j.GetQueueByTopic(topic).AckMsg(j.ctx, topic, task.Token)
+		extraParams := w.ExtraParam
+		_, err := j.GetQueueByTopic(topic).AckMsg(j.ctx, topic, task.Token, extraParams)
 		if err != nil {
 			j.logAndPrintln(Error, "ack_error", topic, task)
 		}

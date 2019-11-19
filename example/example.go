@@ -40,13 +40,14 @@ func main() {
 	bench(job)
 
 	//termStop(job);
-
 	<-stop
 }
 
 //压测
 func bench(job *work.Job) {
 	RegisterWorkerBench(job)
+	// 验证参数透传
+	job.AddFunc("hts1", Me, 5, "instanceId", "groupId")
 	pushQueueData(job, "kxy1", 1000000, 10000)
 	//启动服务
 	job.Start()
@@ -145,6 +146,7 @@ func Mock(task work.Task) work.TaskResult {
  * 配置队列任务
  */
 func RegisterWorker2(job *work.Job) {
+
 	job.AddFunc("hts1", Me, 5)
 	job.AddFunc("hts2", Me, 3)
 	job.AddWorker("kxy1", &work.Worker{Call: work.MyWorkerFunc(Me), MaxConcurrency: 5})
@@ -187,7 +189,7 @@ func (q *LocalQueue) BatchEnqueue(ctx context.Context, key string, messages []st
 	return true, nil
 }
 
-func (q *LocalQueue) Dequeue(ctx context.Context, key string) (message string, token string, dequeueCount int64, err error) {
+func (q *LocalQueue) Dequeue(ctx context.Context, key string, args ...interface{}) (message string, token string, dequeueCount int64, err error) {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -199,7 +201,7 @@ func (q *LocalQueue) Dequeue(ctx context.Context, key string) (message string, t
 	return
 }
 
-func (q *LocalQueue) AckMsg(ctx context.Context, key string, token string) (bool, error) {
+func (q *LocalQueue) AckMsg(ctx context.Context, key string, token string, args ...interface{}) (bool, error) {
 	return true, nil
 }
 

@@ -1,8 +1,8 @@
 package work
 
 import (
-	"time"
 	"context"
+	"time"
 )
 
 func New() *Job {
@@ -70,15 +70,19 @@ func (j *Job) WaitStop(timeout time.Duration) error {
 	return nil
 }
 
-func (j *Job) AddFunc(topic string, f func(task Task) (TaskResult), args ...interface{}) error {
+func (j *Job) AddFunc(topic string, f func(task Task) TaskResult, args ...interface{}) error {
 	//worker并发数
 	var concurrency int
+	var extraParam []interface{}
 	if len(args) > 0 {
 		if c, ok := args[0].(int); ok {
 			concurrency = c
 		}
+		if len(args) > 1 {
+			extraParam = args[1:]
+		}
 	}
-	w := &Worker{Call: MyWorkerFunc(f), MaxConcurrency: concurrency}
+	w := &Worker{Call: MyWorkerFunc(f), MaxConcurrency: concurrency, ExtraParam: extraParam}
 	return j.AddWorker(topic, w)
 }
 
