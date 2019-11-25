@@ -28,7 +28,6 @@ func (j *Job) AddQueue(q Queue, topics ...string) {
 	}
 }
 
-
 //消息入队 -- 原始message
 func (j *Job) Enqueue(ctx context.Context, topic string, message string, args ...interface{}) (bool, error) {
 	task := GenTask(topic, message)
@@ -50,6 +49,19 @@ func (j *Job) EnqueueWithTask(ctx context.Context, topic string, task Task, args
 	}
 	s, _ := JsonEncode(task)
 	return q.Enqueue(ctx, topic, s, args...)
+}
+
+//消息入队 -- 原始message不带有task结构原生消息
+func (j *Job) EnqueueRaw(ctx context.Context, topic string, message string, args ...interface{}) (bool, error) {
+	if !j.isQueueMapInit {
+		j.initQueueMap()
+	}
+	q := j.GetQueueByTopic(topic)
+	if q == nil {
+		return false, ErrQueueNotExist
+	}
+
+	return q.Enqueue(ctx, topic, message, args...)
 }
 
 //消息入队 -- 原始message
