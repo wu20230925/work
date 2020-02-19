@@ -15,6 +15,8 @@ func New() *Job {
 	j.level = Info
 	j.consoleLevel = Info
 	j.sleepy = time.Millisecond * 10
+	j.initSleepy = time.Millisecond * 10
+	j.sleepyLimit = time.Second * 30
 	j.timer = time.Millisecond * 30
 	j.con = defaultConcurrency
 	return j
@@ -49,8 +51,7 @@ func (j *Job) Stop() {
  */
 func (j *Job) WaitStop(timeout time.Duration) error {
 	ch := make(chan struct{})
-
-	time.Sleep(j.sleepy * 2)
+	j.JobSleep()
 	if timeout <= 0 {
 		timeout = time.Second * 10
 	}
@@ -125,6 +126,12 @@ func (j *Job) SetConcurrency(concurrency int) {
 //设置休眠的时间 -- 碰到异常或者空消息等情况
 func (j *Job) SetSleepy(sleepy time.Duration) {
 	j.sleepy = sleepy
+	j.initSleepy = sleepy
+}
+
+//设置休眠的时间上限 -- 碰到异常或者空消息等情况
+func (j *Job) SetSleepyLimit(sleepyLimit time.Duration) {
+	j.sleepyLimit = sleepyLimit
 }
 
 //在通道传递数据时的阻塞超时时间
