@@ -3,6 +3,7 @@ package work
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -62,7 +63,7 @@ type Job struct {
 	//设置的初始等待时间
 	initSleepy time.Duration
 	//设置的等待时间的上限
-	sleepyLimit time.Duration
+	maxSleepy time.Duration
 	//通道定时器超时时间
 	timer time.Duration
 	//默认的worker并发数
@@ -265,7 +266,7 @@ func (j *Job) pullTask(q Queue, topic string) {
 		j.JobSleep()
 		return
 	}
-	j.InitJobSleep()
+	j.ResetJobSleep()
 	atomic.AddInt64(&j.taskCount, 1)
 
 	task, err := DecodeStringTask(message)
@@ -387,15 +388,21 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 	return result
 }
 
+//After there is no data, the job starts from initsleepy to sleep,
+//and then multiplies to maxsleepy. After finding the data, it sleep from initsleepy again
 func (j *Job) JobSleep() {
-	if j.sleepy.Nanoseconds()*2 < int64(j.sleepyLimit) {
-		j.SetSleepy(time.Duration(j.sleepy.Nanoseconds()*2))
-	} else if j.sleepy.Nanoseconds()*2 >= int64(j.sleepyLimit) && j.sleepy != j.sleepyLimit {
-		j.SetSleepy(j.sleepyLimit)
+	if j.sleepy.Nanoseconds()*2 < j.maxSleepy.Nanoseconds() {
+		j.sleepy = time.Duration(j.sleepy.Nanoseconds()*2)
+	} else if j.sleepy.Nanoseconds()*2 >= j.maxSleepy.Nanoseconds() && j.sleepy != j.maxSleepy {
+		if j.sleepy < j.maxSleepy {
+			j.sleepy = j.maxSleepy
+		}
 	}
+	fmt.Printf("*******sleep*****%v", j.sleepy.Nanoseconds())
+	fmt.Println()
 	time.Sleep(j.sleepy)
 }
 
-func (j *Job) InitJobSleep() {
+func (j *Job) ResetJobSleep() {
 	j.SetSleepy(j.initSleepy)
 }

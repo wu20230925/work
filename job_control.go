@@ -16,7 +16,7 @@ func New() *Job {
 	j.consoleLevel = Info
 	j.sleepy = time.Millisecond * 10
 	j.initSleepy = time.Millisecond * 10
-	j.sleepyLimit = time.Second * 30
+	j.maxSleepy = time.Millisecond * 10
 	j.timer = time.Millisecond * 30
 	j.con = defaultConcurrency
 	return j
@@ -130,8 +130,8 @@ func (j *Job) SetSleepy(sleepy time.Duration) {
 }
 
 //设置休眠的时间上限 -- 碰到异常或者空消息等情况
-func (j *Job) SetSleepyLimit(sleepyLimit time.Duration) {
-	j.sleepyLimit = sleepyLimit
+func (j *Job) SetMaxSleepy(maxSleepy time.Duration) {
+	j.maxSleepy = maxSleepy
 }
 
 //在通道传递数据时的阻塞超时时间
