@@ -22,28 +22,24 @@ func main() {
 	stop := make(chan int, 0)
 
 	testJobFeature()
-	//q := new(LocalQueue)
-	//q2 := new(LocalQueue)
+	q := new(LocalQueue)
+	q2 := new(LocalQueue)
 
-	//job := work.New()
-	//job.AddQueue(q)
-	//job.SetSleepy(time.Second)
-	//job.SetMaxSleepy(time.Second*30)
-	//job.AddFunc("hts1", Me, 5, "instanceId", "groupId")
-	//pushQueueData(job, "kxy1", 1000000, 10000)
-	//job.Start()
-	//job.AddQueue(q2, "kxy1")
-	//job.SetConsoleLevel(work.Info)
-	//job.SetEnableTopics("kxy1", "hts2")
+	job := work.New()
+	job.AddQueue(q)
+	job.AddQueue(q2, "kxy1")
+	job.SetLogger(new(MyLogger))
+	job.SetConsoleLevel(work.Info)
+	job.SetEnableTopics("kxy1", "hts2")
 	//task任务panic的回调函数
-	//job.RegisterTaskPanicCallback(func(task work.Task, e ...interface{}) {
-	//	fmt.Println("task_panic_callback", task.Message)
-	//	if len(e) > 0 {
-	//		fmt.Println("task_panic_error", e[0])
-	//	}
-	//})
+	job.RegisterTaskPanicCallback(func(task work.Task, e ...interface{}) {
+		fmt.Println("task_panic_callback", task.Message)
+		if len(e) > 0 {
+			fmt.Println("task_panic_error", e[0])
+		}
+	})
 
-	//bench(job)
+	bench(job)
 
 	//termStop(job);
 	<-stop
@@ -177,10 +173,10 @@ func RegisterWorker2(job *work.Job) {
 
 func Me(task work.Task) work.TaskResult {
 	time.Sleep(time.Millisecond * 50)
-	//i, _ := strconv.Atoi(task.Message)
-	//if i%10 == 0 {
-	//	panic("wo cuo le " + task.Message + " (" + task.Topic + ")")
-	//}
+	i, _ := strconv.Atoi(task.Message)
+	if i%10 == 0 {
+		panic("wo cuo le " + task.Message + " (" + task.Topic + ")")
+	}
 	s, _ := work.JsonEncode(task)
 	fmt.Println("do task", s)
 	return work.TaskResult{Id: task.Id}

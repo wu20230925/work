@@ -3,7 +3,6 @@ package work
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -398,8 +397,6 @@ func (j *Job) JobSleep() {
 			j.sleepy = j.maxSleepy
 		}
 	}
-	fmt.Printf("*******sleep*****%v", j.sleepy.Nanoseconds())
-	fmt.Println()
 	time.Sleep(j.sleepy)
 }
 
