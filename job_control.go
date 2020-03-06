@@ -124,14 +124,14 @@ func (j *Job) SetConcurrency(concurrency int) {
 }
 
 //设置休眠的时间 -- 碰到异常或者空消息等情况
-func (j *Job) SetSleepy(sleepy time.Duration) {
+func (j *Job) SetSleepy(sleepy time.Duration, args ...time.Duration) {
 	j.sleepy = sleepy
 	j.initSleepy = sleepy
-}
-
-//设置休眠的时间上限 -- 碰到异常或者空消息等情况
-func (j *Job) SetMaxSleepy(maxSleepy time.Duration) {
-	j.maxSleepy = maxSleepy
+	if len(args) > 0 {
+		j.maxSleepy = args[0]
+	} else {
+		j.maxSleepy = sleepy
+	}
 }
 
 //在通道传递数据时的阻塞超时时间

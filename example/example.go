@@ -51,8 +51,7 @@ func testJobFeature()  {
 	job := work.New()
 	go addData(job)
 	job.AddQueue(q)
-	job.SetSleepy(time.Second)
-	job.SetMaxSleepy(time.Second*30)
+	job.SetSleepy(time.Second, time.Second*10)
 	job.AddFunc("kxy1", Me, 1, "instanceId", "groupId")
 	job.Start()
 }
