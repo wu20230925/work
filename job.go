@@ -265,9 +265,6 @@ func (j *Job) pullTask(q Queue, topic string) {
 		j.JobSleep()
 		return
 	}
-	if j.sleepy != j.initSleepy {
-		j.ResetJobSleep()
-	}
 	atomic.AddInt64(&j.taskCount, 1)
 
 	task, err := DecodeStringTask(message)
@@ -278,6 +275,9 @@ func (j *Job) pullTask(q Queue, topic string) {
 		return
 	} else if task.Topic != "" {
 		task.Token = token
+	}
+	if j.sleepy != j.initSleepy {
+		j.ResetJobSleep()
 	}
 	task.DequeueCount = dequeueCount
 
