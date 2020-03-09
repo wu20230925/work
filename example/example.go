@@ -20,6 +20,8 @@ func init() {
 
 func main() {
 	stop := make(chan int, 0)
+
+	testJobFeature()
 	q := new(LocalQueue)
 	q2 := new(LocalQueue)
 
@@ -41,6 +43,22 @@ func main() {
 
 	//termStop(job);
 	<-stop
+}
+
+//测试job新的轮训策略
+func testJobFeature()  {
+	q := new(LocalQueue)
+	job := work.New()
+	go addData(job)
+	job.AddQueue(q)
+	job.SetSleepy(time.Second, time.Second*10)
+	job.AddFunc("kxy1", Me, 1, "instanceId", "groupId")
+	job.Start()
+}
+
+func addData(job *work.Job)  {
+	time.Sleep(time.Second * 60)
+	pushQueueData(job, "kxy1", 1, 1)
 }
 
 //压测

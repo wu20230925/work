@@ -59,6 +59,10 @@ type Job struct {
 	running bool
 	//异常状态时需要sleep时间
 	sleepy time.Duration
+	//设置的初始等待时间
+	initSleepy time.Duration
+	//设置的等待时间的上限
+	maxSleepy time.Duration
 	//通道定时器超时时间
 	timer time.Duration
 	//默认的worker并发数
@@ -250,7 +254,7 @@ func (j *Job) pullTask(q Queue, topic string) {
 	if err != nil && err != ErrNil {
 		atomic.AddInt64(&j.pullErrCount, 1)
 		j.logAndPrintln(Error, "dequeue_error", err, message)
-		time.Sleep(j.sleepy)
+		j.JobSleep()
 		return
 	}
 
@@ -258,7 +262,7 @@ func (j *Job) pullTask(q Queue, topic string) {
 	if err == ErrNil || message == "" {
 		j.println(Trace, "return nil message", topic)
 		atomic.AddInt64(&j.pullEmptyCount, 1)
-		time.Sleep(j.sleepy)
+		j.JobSleep()
 		return
 	}
 	atomic.AddInt64(&j.taskCount, 1)
@@ -267,10 +271,13 @@ func (j *Job) pullTask(q Queue, topic string) {
 	if err != nil {
 		atomic.AddInt64(&j.taskErrCount, 1)
 		j.logAndPrintln(Error, "decode_task_error", err, message)
-		time.Sleep(j.sleepy)
+		j.JobSleep()
 		return
 	} else if task.Topic != "" {
 		task.Token = token
+	}
+	if j.sleepy != j.initSleepy {
+		j.ResetJobSleep()
 	}
 	task.DequeueCount = dequeueCount
 
@@ -380,4 +387,21 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 	}
 
 	return result
+}
+
+//After there is no data, the job starts from initsleepy to sleep,
+//and then multiplies to maxsleepy. After finding the data, it sleep from initsleepy again
+func (j *Job) JobSleep() {
+	if j.sleepy.Nanoseconds()*2 < j.maxSleepy.Nanoseconds() {
+		j.sleepy = time.Duration(j.sleepy.Nanoseconds()*2)
+	} else if j.sleepy.Nanoseconds()*2 >= j.maxSleepy.Nanoseconds() && j.sleepy != j.maxSleepy {
+		if j.sleepy < j.maxSleepy {
+			j.sleepy = j.maxSleepy
+		}
+	}
+	time.Sleep(j.sleepy)
+}
+
+func (j *Job) ResetJobSleep() {
+	j.SetSleepy(j.initSleepy)
 }
