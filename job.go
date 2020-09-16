@@ -250,7 +250,7 @@ func (j *Job) pullTask(q Queue, topic string) {
 	j.wLock.RUnlock()
 	extraParams := work.ExtraParam
 	realTopic := topic
-	// todo 不优雅临时方案：将extraParams第4个参数，强制指定为topic，来解除耦合
+	// todo 临时方案：将extraParams第4个参数，强制指定为topic，来解除耦合
 	if len(extraParams) > 3 {
 		tempTopic, ok := extraParams[3].(string)
 		if ok {
@@ -275,7 +275,7 @@ func (j *Job) pullTask(q Queue, topic string) {
 	}
 	atomic.AddInt64(&j.taskCount, 1)
 
-	// todo 不优雅临时方案：将extraParams第5个参数，强制指定是否使用原生消息。默认情况，保持原先逻辑，使用snow框架自带的消息结构
+	// todo 临时方案：将extraParams第5个参数，强制指定是否使用原生消息。默认情况，保持原先逻辑，使用snow框架自带的消息结构
 	flag := false
 	task := Task{}
 	if len(extraParams) > 4 {
@@ -400,7 +400,7 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 	if isAck && task.Token != "" {
 		extraParams := w.ExtraParam
 		realTopic := topic
-		// todo 不优雅临时方案：将extraParams第4个参数，强制指定为topic，来解除耦合
+		// todo 临时方案：将extraParams第4个参数，强制指定为topic，来解除耦合
 		if len(extraParams) > 3 {
 			tempTopic, ok := extraParams[3].(string)
 			if ok {
