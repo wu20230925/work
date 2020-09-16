@@ -249,7 +249,15 @@ func (j *Job) pullTask(q Queue, topic string) {
 	work := j.workers[topic]
 	j.wLock.RUnlock()
 	extraParams := work.ExtraParam
-	message, token, dequeueCount, err := q.Dequeue(j.ctx, topic, extraParams...)
+	realTopic := topic
+	// todo 临时方案：将extraParams第4个参数，强制指定为topic，来解除耦合
+	if len(extraParams) > 3 {
+		tempTopic, ok := extraParams[3].(string)
+		if ok {
+			realTopic = tempTopic
+		}
+	}
+	message, token, dequeueCount, err := q.Dequeue(j.ctx, realTopic, extraParams...)
 	atomic.AddInt64(&j.pullCount, 1)
 	if err != nil && err != ErrNil {
 		atomic.AddInt64(&j.pullErrCount, 1)
@@ -267,15 +275,31 @@ func (j *Job) pullTask(q Queue, topic string) {
 	}
 	atomic.AddInt64(&j.taskCount, 1)
 
-	task, err := DecodeStringTask(message)
-	if err != nil {
-		atomic.AddInt64(&j.taskErrCount, 1)
-		j.logAndPrintln(Error, "decode_task_error", err, message)
-		j.JobSleep()
-		return
-	} else if task.Topic != "" {
-		task.Token = token
+	// todo 临时方案：将extraParams第5个参数，强制指定是否使用原生消息。默认情况，保持原先逻辑，使用snow框架自带的消息结构
+	flag := false
+	task := Task{}
+	if len(extraParams) > 4 {
+		useOriMsgFlag, ok := extraParams[4].(bool)
+		if ok {
+			flag = useOriMsgFlag
+		}
 	}
+	if flag {
+		task.Message = message
+		task.Id = token
+	} else {
+		task, err = DecodeStringTask(message)
+		if err != nil {
+			atomic.AddInt64(&j.taskErrCount, 1)
+			j.logAndPrintln(Error, "decode_task_error", err, message)
+			j.JobSleep()
+			return
+		}
+	}
+
+	// token为必须参数,用于后续ack
+	task.Token = token
+
 	if j.sleepy != j.initSleepy {
 		j.ResetJobSleep()
 	}
@@ -375,7 +399,15 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 	//消息ACK
 	if isAck && task.Token != "" {
 		extraParams := w.ExtraParam
-		_, err := j.GetQueueByTopic(topic).AckMsg(j.ctx, topic, task.Token, extraParams...)
+		realTopic := topic
+		// todo 临时方案：将extraParams第4个参数，强制指定为topic，来解除耦合
+		if len(extraParams) > 3 {
+			tempTopic, ok := extraParams[3].(string)
+			if ok {
+				realTopic = tempTopic
+			}
+		}
+		_, err := j.GetQueueByTopic(topic).AckMsg(j.ctx, realTopic, task.Token, extraParams...)
 		if err != nil {
 			j.logAndPrintln(Error, "ack_error", topic, task)
 		}
@@ -393,7 +425,7 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 //and then multiplies to maxsleepy. After finding the data, it sleep from initsleepy again
 func (j *Job) JobSleep() {
 	if j.sleepy.Nanoseconds()*2 < j.maxSleepy.Nanoseconds() {
-		j.sleepy = time.Duration(j.sleepy.Nanoseconds()*2)
+		j.sleepy = time.Duration(j.sleepy.Nanoseconds() * 2)
 	} else if j.sleepy.Nanoseconds()*2 >= j.maxSleepy.Nanoseconds() && j.sleepy != j.maxSleepy {
 		if j.sleepy < j.maxSleepy {
 			j.sleepy = j.maxSleepy
