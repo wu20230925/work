@@ -46,7 +46,7 @@ func main() {
 }
 
 //测试job新的轮训策略
-func testJobFeature()  {
+func testJobFeature() {
 	q := new(LocalQueue)
 	job := work.New()
 	go addData(job)
@@ -56,7 +56,7 @@ func testJobFeature()  {
 	job.Start()
 }
 
-func addData(job *work.Job)  {
+func addData(job *work.Job) {
 	time.Sleep(time.Second * 60)
 	pushQueueData(job, "kxy1", 1, 1)
 }
@@ -207,7 +207,7 @@ func (q *LocalQueue) BatchEnqueue(ctx context.Context, key string, messages []st
 	return true, nil
 }
 
-func (q *LocalQueue) Dequeue(ctx context.Context, key string, args ...interface{}) (message string, token string, dequeueCount int64, err error) {
+func (q *LocalQueue) Dequeue(ctx context.Context, key string, args ...interface{}) (message string, tag string, token string, dequeueCount int64, err error) {
 	lock.Lock()
 	defer lock.Unlock()
 

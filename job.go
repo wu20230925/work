@@ -257,7 +257,7 @@ func (j *Job) pullTask(q Queue, topic string) {
 			realTopic = tempTopic
 		}
 	}
-	message, token, dequeueCount, err := q.Dequeue(j.ctx, realTopic, extraParams...)
+	message, tag, token, dequeueCount, err := q.Dequeue(j.ctx, realTopic, extraParams...)
 	atomic.AddInt64(&j.pullCount, 1)
 	if err != nil && err != ErrNil {
 		atomic.AddInt64(&j.pullErrCount, 1)
@@ -299,6 +299,7 @@ func (j *Job) pullTask(q Queue, topic string) {
 
 	// token为必须参数,用于后续ack
 	task.Token = token
+	task.Tag = tag
 
 	if j.sleepy != j.initSleepy {
 		j.ResetJobSleep()
