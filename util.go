@@ -5,7 +5,6 @@ import (
 	"github.com/google/uuid"
 )
 
-
 func JsonEncode(v interface{}) (string, error) {
 	bytes, err := json.Marshal(v)
 	if err != nil {
