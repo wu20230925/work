@@ -19,6 +19,7 @@ type Task struct {
 	Id           string `json:"id"`
 	Topic        string `json:"topic"`
 	Message      string `json:"message"`
+	Tag          string `json:"tag"`
 	Token        string
 	DequeueCount int64
 }
