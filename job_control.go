@@ -67,8 +67,6 @@ func (j *Job) WaitStop(timeout time.Duration) error {
 	case <-time.After(timeout):
 		return ErrTimeout
 	}
-
-	return nil
 }
 
 func (j *Job) AddFunc(topic string, f func(task Task) TaskResult, args ...interface{}) error {
@@ -101,7 +99,7 @@ func (j *Job) AddWorker(topic string, w *Worker) error {
 	return nil
 }
 
-//获取统计数据
+// 获取统计数据
 func (j *Job) Stats() map[string]int64 {
 	return map[string]int64{
 		"pull":         j.pullCount,
@@ -115,7 +113,7 @@ func (j *Job) Stats() map[string]int64 {
 	}
 }
 
-//设置worker默认并发数
+// 设置worker默认并发数
 func (j *Job) SetConcurrency(concurrency int) {
 	if concurrency <= 0 {
 		return
@@ -123,7 +121,7 @@ func (j *Job) SetConcurrency(concurrency int) {
 	j.con = concurrency
 }
 
-//设置休眠的时间 -- 碰到异常或者空消息等情况
+// 设置休眠的时间 -- 碰到异常或者空消息等情况
 func (j *Job) SetSleepy(sleepy time.Duration, args ...time.Duration) {
 	j.sleepy = sleepy
 	j.initSleepy = sleepy
@@ -134,42 +132,42 @@ func (j *Job) SetSleepy(sleepy time.Duration, args ...time.Duration) {
 	}
 }
 
-//在通道传递数据时的阻塞超时时间
+// 在通道传递数据时的阻塞超时时间
 func (j *Job) SetTimer(timer time.Duration) {
 	j.timer = timer
 }
 
-//设置标准输出日志等级
+// 设置标准输出日志等级
 func (j *Job) SetConsoleLevel(level uint8) {
 	j.consoleLevel = level
 }
 
-//设置文件输出日志等级
+// 设置文件输出日志等级
 func (j *Job) SetLevel(level uint8) {
 	j.level = level
 }
 
-//设置日志服务
+// 设置日志服务
 func (j *Job) SetLogger(logger Logger) {
 	j.logger = logger
 }
 
-//针对性开启topics
+// 针对性开启topics
 func (j *Job) SetEnableTopics(topics ...string) {
 	j.enabledTopics = topics
 }
 
-//设置任务处理前回调函数
+// 设置任务处理前回调函数
 func (j *Job) RegisterTaskBeforeCallback(f func(task Task)) {
 	j.taskBeforeCallback = f
 }
 
-//设置任务处理后回调函数
+// 设置任务处理后回调函数
 func (j *Job) RegisterTaskAfterCallback(f func(task Task, taskResult TaskResult)) {
 	j.taskAfterCallback = f
 }
 
-//设置任务panic回调函数：回调函数自己确保panic不会上报，否则会导致此topic的队列worker停止
+// 设置任务panic回调函数：回调函数自己确保panic不会上报，否则会导致此topic的队列worker停止
 func (j *Job) RegisterTaskPanicCallback(f func(task Task, e ...interface{})) {
 	j.taskPanicCallback = f
 }

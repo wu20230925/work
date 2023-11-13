@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	//默认worker的并发数
+	// 默认worker的并发数
 	defaultConcurrency = 5
 )
 
@@ -30,66 +30,66 @@ var (
 
 type queueManger struct {
 	queue Queue
-	//队列服务负责的主题
+	// 队列服务负责的主题
 	topics []string
 }
 
 type Job struct {
-	//上下文
+	// 上下文
 	ctx context.Context
 
-	//workers及map锁
+	// workers及map锁
 	workers map[string]*Worker
-	//map操作锁
+	// map操作锁
 	wLock sync.RWMutex
 
-	//worker并发控制通道
+	// worker并发控制通道
 	concurrency map[string]chan struct{}
 	cLock       sync.RWMutex
 
-	//队列数据通道
+	// 队列数据通道
 	tasksChan map[string]chan Task
 	tLock     sync.RWMutex
 
 	enabledTopics []string
 
-	//work并发处理的等待暂停
+	// work并发处理的等待暂停
 	wg sync.WaitGroup
-	//启动状态
+	// 启动状态
 	running bool
-	//异常状态时需要sleep时间
+	// 异常状态时需要sleep时间
 	sleepy time.Duration
-	//设置的初始等待时间
+	// 设置的初始等待时间
 	initSleepy time.Duration
-	//设置的等待时间的上限
+	// 设置的等待时间的上限
 	maxSleepy time.Duration
-	//通道定时器超时时间
+	// 通道定时器超时时间
 	timer time.Duration
-	//默认的worker并发数
+	// 默认的worker并发数
 	con int
 
-	//Queue服务 - 依赖外部注入
+	// Queue服务 - 依赖外部注入
 	queueMangers []queueManger
-	//默认Queue服务 - 依赖外部注入
+	// 默认Queue服务 - 依赖外部注入
 	defaultQueue Queue
-	//topic与queue的映射关系
+	// topic与queue的映射关系
 	queueMap map[string]Queue
-	//map操作锁
+	// map操作锁
 	qLock sync.RWMutex
 
-	//标准输出等级
+	// 标准输出等级
 	consoleLevel uint8
 
-	//日志服务 - 依赖外部注入
+	// 日志服务 - 依赖外部注入
 	logger Logger
-	//日记等级
+	// 日记等级
 	level uint8
 
-	//是否初始化
+	// 是否初始化
 	isInit         bool
 	isQueueMapInit bool
 
-	//统计
+	// 统计
 	pullCount        int64
 	pullEmptyCount   int64
 	pullErrCount     int64
@@ -99,18 +99,18 @@ type Job struct {
 	handleErrCount   int64
 	handlePanicCount int64
 
-	//回调函数
-	//任务返回失败回调函数
+	// 回调函数
+	// 任务返回失败回调函数
 	taskErrCallback func(task Task, result TaskResult)
-	//任务panic回调函数 增加参数将panic信息传递给回调函数，方便做sentry处理
+	// 任务panic回调函数 增加参数将panic信息传递给回调函数，方便做sentry处理
 	taskPanicCallback func(task Task, e ...interface{})
-	//任务处理前回调
+	// 任务处理前回调
 	taskBeforeCallback func(task Task)
-	//任务处理后回调
+	// 任务处理后回调
 	taskAfterCallback func(task Task, result TaskResult)
 }
 
-//topic是否开启 备注：空的时候默认启用全部
+// topic是否开启 备注：空的时候默认启用全部
 func (j *Job) isTopicEnable(topic string) bool {
 	if len(j.enabledTopics) == 0 {
 		return true
@@ -124,7 +124,7 @@ func (j *Job) isTopicEnable(topic string) bool {
 	return false
 }
 
-//初始化workers相关配置
+// 初始化workers相关配置
 func (j *Job) initWorkers() {
 	for topic, w := range j.workers {
 		if !j.isTopicEnable(topic) {
@@ -135,23 +135,23 @@ func (j *Job) initWorkers() {
 			w.MaxConcurrency = j.con
 		}
 
-		//用来控制workers的并发数
+		// 用来控制workers的并发数
 		j.concurrency[topic] = make(chan struct{}, w.MaxConcurrency)
 		for i := 0; i < w.MaxConcurrency; i++ {
 			j.concurrency[topic] <- struct{}{}
 		}
 
-		//存放消息数据的通道
-		j.tasksChan[topic] = make(chan Task, 0)
+		// 存放消息数据的通道
+		j.tasksChan[topic] = make(chan Task)
 	}
 }
 
-//初始化topic与queu的映射关系map
+// 初始化topic与queu的映射关系map
 func (j *Job) initQueueMap() {
 	j.isQueueMapInit = true
 	topicMap := make(map[string]bool)
 
-	for topic, _ := range j.workers {
+	for topic := range j.workers {
 		topicMap[topic] = true
 	}
 	j.println(Debug, "topicMap", topicMap)
@@ -178,7 +178,7 @@ func (j *Job) initQueueMap() {
 
 	remainTopics := make([]string, 0)
 	for topic, ok := range topicMap {
-		if ok == true {
+		if ok {
 			remainTopics = append(remainTopics, topic)
 		}
 	}
@@ -190,7 +190,7 @@ func (j *Job) initQueueMap() {
 	}
 }
 
-//启动拉取队列数据服务
+// 启动拉取队列数据服务
 func (j *Job) runQueues() {
 	for topic, queue := range j.queueMap {
 		if !j.isTopicEnable(topic) {
@@ -200,7 +200,7 @@ func (j *Job) runQueues() {
 	}
 }
 
-//监听队列某个topic
+// 监听队列某个topic
 func (j *Job) watchQueueTopic(q Queue, topic string) {
 	j.println(Info, "watch queue topic", topic)
 	j.cLock.RLock()
@@ -224,14 +224,14 @@ func (j *Job) watchQueueTopic(q Queue, topic string) {
 	}
 }
 
-//topic与queue的map映射关系表，主要是ack通过Topic获取
+// topic与queue的map映射关系表，主要是ack通过Topic获取
 func (j *Job) setQueueMap(q Queue, topic string) {
 	j.qLock.Lock()
 	j.queueMap[topic] = q
 	j.qLock.Unlock()
 }
 
-//拉取队列消息
+// 拉取队列消息
 func (j *Job) pullTask(q Queue, topic string) {
 	var taskEnqueue bool
 
@@ -330,7 +330,7 @@ func (j *Job) processJob() {
 	}
 }
 
-//读取通道数据分发到各个topic对应的worker进行处理
+// 读取通道数据分发到各个topic对应的worker进行处理
 func (j *Job) processWork(topic string, taskChan <-chan Task) {
 	defer func() {
 		if e := recover(); e != nil {
@@ -350,7 +350,7 @@ func (j *Job) processWork(topic string, taskChan <-chan Task) {
 	}
 }
 
-//处理task任务
+// 处理task任务
 func (j *Job) processTask(topic string, task Task) TaskResult {
 	j.wg.Add(1)
 	defer func() {
@@ -422,8 +422,8 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 	return result
 }
 
-//After there is no data, the job starts from initsleepy to sleep,
-//and then multiplies to maxsleepy. After finding the data, it sleep from initsleepy again
+// After there is no data, the job starts from initsleepy to sleep,
+// and then multiplies to maxsleepy. After finding the data, it sleep from initsleepy again
 func (j *Job) JobSleep() {
 	if j.sleepy.Nanoseconds()*2 < j.maxSleepy.Nanoseconds() {
 		j.sleepy = time.Duration(j.sleepy.Nanoseconds() * 2)
