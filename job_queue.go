@@ -42,7 +42,7 @@ func (j *Job) EnqueueWithTask(ctx context.Context, topic string, task Task, args
 		return false, err
 	}
 	success, err := j.enqueueWithTask(hookCtx.Ctx, topic, task, args)
-	hookCtx.End(hookCtx.Ctx, err)
+	hookCtx.End(err)
 	err = j.AfterProcess(hookCtx)
 
 	return success, err
@@ -72,7 +72,7 @@ func (j *Job) EnqueueRaw(ctx context.Context, topic string, message string, args
 		return false, err
 	}
 	success, err := j.enqueueRaw(hookCtx.Ctx, topic, message, args)
-	hookCtx.End(hookCtx.Ctx, err)
+	hookCtx.End(err)
 	err = j.AfterProcess(hookCtx)
 
 	return success, err
@@ -115,7 +115,7 @@ func (j *Job) BatchEnqueueWithTask(ctx context.Context, topic string, tasks []Ta
 		return false, err
 	}
 	success, err := j.batchEnqueueWithTask(hookCtx.Ctx, topic, messages, args)
-	hookCtx.End(hookCtx.Ctx, err)
+	hookCtx.End(err)
 	err = j.AfterProcess(hookCtx)
 
 	return success, err
