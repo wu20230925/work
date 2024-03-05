@@ -108,9 +108,12 @@ type Job struct {
 	taskBeforeCallback func(task Task)
 	//任务处理后回调
 	taskAfterCallback func(task Task, result TaskResult)
+
+	// hooks for producer
+	pdHooks []Hook
 }
 
-//topic是否开启 备注：空的时候默认启用全部
+// topic是否开启 备注：空的时候默认启用全部
 func (j *Job) isTopicEnable(topic string) bool {
 	if len(j.enabledTopics) == 0 {
 		return true
@@ -124,7 +127,7 @@ func (j *Job) isTopicEnable(topic string) bool {
 	return false
 }
 
-//初始化workers相关配置
+// 初始化workers相关配置
 func (j *Job) initWorkers() {
 	for topic, w := range j.workers {
 		if !j.isTopicEnable(topic) {
@@ -146,7 +149,7 @@ func (j *Job) initWorkers() {
 	}
 }
 
-//初始化topic与queu的映射关系map
+// 初始化topic与queu的映射关系map
 func (j *Job) initQueueMap() {
 	j.isQueueMapInit = true
 	topicMap := make(map[string]bool)
@@ -190,7 +193,7 @@ func (j *Job) initQueueMap() {
 	}
 }
 
-//启动拉取队列数据服务
+// 启动拉取队列数据服务
 func (j *Job) runQueues() {
 	for topic, queue := range j.queueMap {
 		if !j.isTopicEnable(topic) {
@@ -200,7 +203,7 @@ func (j *Job) runQueues() {
 	}
 }
 
-//监听队列某个topic
+// 监听队列某个topic
 func (j *Job) watchQueueTopic(q Queue, topic string) {
 	j.println(Info, "watch queue topic", topic)
 	j.cLock.RLock()
@@ -224,14 +227,14 @@ func (j *Job) watchQueueTopic(q Queue, topic string) {
 	}
 }
 
-//topic与queue的map映射关系表，主要是ack通过Topic获取
+// topic与queue的map映射关系表，主要是ack通过Topic获取
 func (j *Job) setQueueMap(q Queue, topic string) {
 	j.qLock.Lock()
 	j.queueMap[topic] = q
 	j.qLock.Unlock()
 }
 
-//拉取队列消息
+// 拉取队列消息
 func (j *Job) pullTask(q Queue, topic string) {
 	var taskEnqueue bool
 
@@ -330,7 +333,7 @@ func (j *Job) processJob() {
 	}
 }
 
-//读取通道数据分发到各个topic对应的worker进行处理
+// 读取通道数据分发到各个topic对应的worker进行处理
 func (j *Job) processWork(topic string, taskChan <-chan Task) {
 	defer func() {
 		if e := recover(); e != nil {
@@ -350,7 +353,7 @@ func (j *Job) processWork(topic string, taskChan <-chan Task) {
 	}
 }
 
-//处理task任务
+// 处理task任务
 func (j *Job) processTask(topic string, task Task) TaskResult {
 	j.wg.Add(1)
 	defer func() {
@@ -422,8 +425,8 @@ func (j *Job) processTask(topic string, task Task) TaskResult {
 	return result
 }
 
-//After there is no data, the job starts from initsleepy to sleep,
-//and then multiplies to maxsleepy. After finding the data, it sleep from initsleepy again
+// After there is no data, the job starts from initsleepy to sleep,
+// and then multiplies to maxsleepy. After finding the data, it sleep from initsleepy again
 func (j *Job) JobSleep() {
 	if j.sleepy.Nanoseconds()*2 < j.maxSleepy.Nanoseconds() {
 		j.sleepy = time.Duration(j.sleepy.Nanoseconds() * 2)
